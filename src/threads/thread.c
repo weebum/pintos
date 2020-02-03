@@ -91,8 +91,17 @@ int ready_pri(void) {
     return PRI_MIN;
 };
 
-
-
+void thread_status(void) {
+  struct thread *cur = thread_current ();
+  printf("C: %s %d(%d)\n", cur->name, cur->ppriority, cur->priority);
+  printf("R: ");
+  struct list_elem *e;
+  for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e)) { 
+    struct thread *t = list_entry (e, struct thread, elem);
+    printf("%s %d(%d) ", t->name, t->ppriority, t->priority);
+  }
+  printf("\n");
+}
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -266,11 +275,17 @@ thread_unblock (struct thread *t)
   list_insert_ordered(&ready_list, &t->elem, highprif, NULL);
   printf("thread %s with priority %d is put to the ready list.\n", t->name, t->priority);
   t->status = THREAD_READY;
-  /*
+
+
+  printf("[thread_unblock]\n");
+  thread_status();
+  
   if (t->priority > current_pri()) {
     printf("new thread has higher priority than the current thread (%d). swap.\n", current_pri());
     thread_yield ();
-  }*/
+  }
+  
+
   intr_set_level (old_level);
 }
 
@@ -334,6 +349,8 @@ void
 thread_yield (void) 
 {
   struct thread *cur = thread_current ();
+  printf("[thread_yield]\n");
+  printf("current thread: %s\n", cur->name);
   enum intr_level old_level;
   
   ASSERT (!intr_context ());
