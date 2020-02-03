@@ -102,8 +102,10 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 
     /* Added features */
-    int64_t wakeup;
+    int64_t wakeup;			/* Alarm, if there is one. */
     struct list_elem slpelem;		/* List element for sleeping threads. */
+    struct list donations;		/* List for storing donations. */
+    int ppriority;			/* Practical, or psuedo-priority. */
   };
 
 /* If false (default), use round-robin scheduler.
@@ -141,5 +143,10 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* Added functions */
+bool highprif (const struct list_elem *a, const struct list_elem *b, void *aux);
+int current_pri (void);
+int ready_pri (void);
 
 #endif /* threads/thread.h */

@@ -71,6 +71,29 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+/* Comparator function for priority scheduling. */
+bool highprif (const struct list_elem *a, const struct list_elem *b, void *aux) {
+  struct thread *t1 = list_entry (a, struct thread, elem);
+  struct thread *t2 = list_entry (b, struct thread, elem);
+  return (t1->ppriority > t2->ppriority);
+}
+
+/* Priority of current running thread. */
+int current_pri(void) {
+  return thread_current ()->ppriority;
+}
+
+/* Maximum priority of ready threads. */
+int ready_pri(void) {
+  if (!list_empty (&ready_list))
+    return ((list_entry(list_front(&ready_list), struct thread, elem)))->ppriority;
+  else
+    return PRI_MIN;
+};
+
+
+
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -134,9 +157,11 @@ thread_tick (void)
   else
     kernel_ticks++;
 
-  /* Enforce preemption. */
+  /*
+  // Enforce preemption.
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+   */
 }
 
 /* Prints thread statistics. */
@@ -237,8 +262,15 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  //list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, highprif, NULL);
+  printf("thread %s with priority %d is put to the ready list.\n", t->name, t->priority);
   t->status = THREAD_READY;
+  /*
+  if (t->priority > current_pri()) {
+    printf("new thread has higher priority than the current thread (%d). swap.\n", current_pri());
+    thread_yield ();
+  }*/
   intr_set_level (old_level);
 }
 
@@ -307,8 +339,11 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+  if (cur != idle_thread) {
+    //list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, highprif, NULL);
+    printf("current thread yields.\n");
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -335,14 +370,26 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  //thread_current ()->priority = new_priority;
+  struct thread *cur = thread_current ();
+  cur->priority = new_priority;
+  /* No donations, i.e. ppriority is the actual priority. */
+  if (list_size (&cur->donations) == 0) {
+    cur->ppriority = new_priority;
+    /* Current running thread no longer has highest priority. */
+    if (new_priority < ready_pri())
+      thread_yield ();
+  }
+  /* The original thread priority is now higher than donations. */
+  else if (cur->ppriority < new_priority)
+    cur->ppriority = new_priority;
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  return thread_current ()->ppriority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -463,6 +510,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  
+  /* Added features */
+  t->ppriority = t->priority;
+  list_init (&t->donations);
+  printf("thread %s's ppriority and donations have been initialized.\n", t->name);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
