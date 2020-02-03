@@ -91,6 +91,7 @@ int ready_pri(void) {
     return PRI_MIN;
 };
 
+/* Prints status of running and ready threads. Only for debugging. */
 void thread_status(void) {
   struct thread *cur = thread_current ();
   printf("C: %s %d(%d)\n", cur->name, cur->ppriority, cur->priority);
@@ -273,15 +274,17 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
   //list_push_back (&ready_list, &t->elem);
   list_insert_ordered(&ready_list, &t->elem, highprif, NULL);
-  printf("thread %s with priority %d is put to the ready list.\n", t->name, t->priority);
+  //printf("thread %s with priority %d is put to the ready list.\n", t->name, t->priority);
+
   t->status = THREAD_READY;
+  //printf("[thread_unblock]\n");
+  //thread_status();
+  struct thread *cur = thread_current();
 
 
-  printf("[thread_unblock]\n");
-  thread_status();
-  
-  if (t->priority > current_pri()) {
-    printf("new thread has higher priority than the current thread (%d). swap.\n", current_pri());
+  if (t->priority > current_pri() && strcmp(cur->name, "idle") != 0) {
+    //printf("thread %s has higher priority than the current thread %s (%d). swap.\n", 
+    //	t->name, cur->name, current_pri());
     thread_yield ();
   }
   
@@ -349,8 +352,8 @@ void
 thread_yield (void) 
 {
   struct thread *cur = thread_current ();
-  printf("[thread_yield]\n");
-  printf("current thread: %s\n", cur->name);
+  //printf("[thread_yield]\n");
+  //printf("current thread: %s\n", cur->name);
   enum intr_level old_level;
   
   ASSERT (!intr_context ());
@@ -359,10 +362,11 @@ thread_yield (void)
   if (cur != idle_thread) {
     //list_push_back (&ready_list, &cur->elem);
     list_insert_ordered(&ready_list, &cur->elem, highprif, NULL);
-    printf("current thread yields.\n");
+    //printf("current thread yields.\n");
   }
   cur->status = THREAD_READY;
   schedule ();
+  //thread_status();
   intr_set_level (old_level);
 }
 
@@ -531,7 +535,7 @@ init_thread (struct thread *t, const char *name, int priority)
   /* Added features */
   t->ppriority = t->priority;
   list_init (&t->donations);
-  printf("thread %s's ppriority and donations have been initialized.\n", t->name);
+  //printf("thread %s's ppriority and donations have been initialized.\n", t->name);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
